@@ -83,12 +83,12 @@ print(f"Optimal caliper: {result.optimal_caliper:.3f} SD")
 ## Citation
 
 ```bibtex
-@article{watambwa2024adaptive,
+@article{watambwa2026adaptive,
   title={A Multi-Objective Optimization Framework for Adaptive Caliper Selection 
          in Propensity Score Matching},
   author={Watambwa, Perkins and Chidumwa, Glory and others},
   journal={[Journal]},
-  year={2024}
+  year={2026}
 }
 ```
 
