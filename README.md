@@ -22,7 +22,7 @@ Adaptive-Caliper-in-Propensity-Score-Matching/
 │   ├── adaptive_caliper.py    # ACS algorithm implementation
 │   ├── treatment_effect.py    # ATT estimation
 │   ├── simulation_runner.py   # Monte Carlo simulation
-│   └── visualization.py       # Publication-quality figures
+│   └── visualization.py       # Figures
 ├── notebooks/
 │   └── 01_simulation_study.ipynb  # Main analysis notebook
 ├── outputs/
