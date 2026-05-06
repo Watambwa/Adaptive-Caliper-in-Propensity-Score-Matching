@@ -74,21 +74,16 @@ print(f"Optimal caliper: {result.optimal_caliper:.3f} SD")
 
 ## Simulation Design
 
-- **Sample sizes:** 500, 1000, 2000
-- **Treatment prevalence:** 0.3, 0.5, 0.7
-- **Overlap levels:** High, Medium, Low
-- **Confounding:** Weak, Strong
-- **Replications:** 1000 per scenario
+- **Sample sizes:** 1000
+- **Treatment prevalence:** 0.5
+- **Overlap levels:** Medium
+- **Confounding:** Strong
+- **Replications:** 100 per scenario
 
 ## Citation
 
 ```bibtex
-@article{watambwa2026adaptive,
-  title={A Multi-Objective Optimization Framework for Adaptive Caliper Selection 
-         in Propensity Score Matching},
-  author={Watambwa, Perkins and Chidumwa, Glory and others},
-  journal={[Journal]},
-  year={2026}
+To be added upon publication
 }
 ```
 
