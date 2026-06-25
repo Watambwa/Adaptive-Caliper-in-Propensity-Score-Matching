@@ -329,3 +329,305 @@ def create_scenario_comparison_figure(
         fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches='tight')
     
     return fig
+
+
+def plot_factorial_heatmaps(
+    summary_df: pd.DataFrame,
+    metrics: List[str] = None,
+    save_dir: Optional[Path] = None,
+    figsize: Tuple[float, float] = (16, 12)
+) -> Dict[str, plt.Figure]:
+    """
+    Create heatmaps for each metric across factorial design factors.
+    
+    Parameters
+    ----------
+    summary_df : pd.DataFrame
+        Summary statistics by scenario and method
+    metrics : list of str, optional
+        Metrics to plot. Defaults to main metrics.
+    save_dir : Path, optional
+        Directory to save figures
+    figsize : tuple
+        Figure size for each heatmap
+        
+    Returns
+    -------
+    figures : dict
+        Dictionary mapping metric names to figure objects
+    """
+    if metrics is None:
+        metrics = ['mean_abs_bias', 'rmse', 'coverage_rate', 
+                   'mean_retention', 'mean_max_smd']
+    
+    metric_labels = {
+        'mean_abs_bias': 'Mean Absolute Bias',
+        'rmse': 'RMSE',
+        'coverage_rate': 'Coverage Rate',
+        'mean_retention': 'Sample Retention',
+        'mean_max_smd': 'Max |SMD|'
+    }
+    
+    method_order = ['Fixed-0.1', 'Fixed-0.2', 'Fixed-0.5', 'No Caliper',
+                    'ACS-Balance', 'ACS-Knee', 'ACS-Weighted']
+    
+    figures = {}
+    
+    for metric in metrics:
+        fig, axes = plt.subplots(1, len(method_order), 
+                                 figsize=(figsize[0], figsize[1]/3),
+                                 sharex=True, sharey=True)
+        
+        for ax, method in zip(axes, method_order):
+            # Create pivot table for this method
+            pivot_data = summary_df[summary_df['method'] == method].pivot_table(
+                values=metric,
+                index=['overlap_name', 'confounding_name'],
+                columns=['n', 'treatment_prevalence'],
+                aggfunc='mean'
+            )
+            
+            # Create heatmap
+            sns.heatmap(pivot_data, annot=True, fmt='.3f', 
+                       cmap='RdYlGn_r' if metric != 'coverage_rate' else 'RdYlGn',
+                       ax=ax, cbar=True, vmin=None, vmax=None,
+                       cbar_kws={'label': metric_labels.get(metric, metric)})
+            
+            ax.set_title(METHOD_NAMES.get(method, method), 
+                        fontsize=11, fontweight='bold')
+            ax.set_xlabel('(n, prev)', fontsize=9)
+            ax.set_ylabel('(overlap, conf)' if ax == axes[0] else '', fontsize=9)
+            plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=7)
+            plt.setp(ax.get_yticklabels(), rotation=0, fontsize=7)
+        
+        fig.suptitle(f'{metric_labels.get(metric, metric)} Across All Scenarios',
+                    fontsize=14, fontweight='bold', y=1.02)
+        plt.tight_layout()
+        
+        figures[metric] = fig
+        
+        if save_dir:
+            fig.savefig(save_dir / f'factorial_heatmap_{metric}.png', 
+                       dpi=FIGURE_DPI, bbox_inches='tight')
+    
+    return figures
+
+
+def plot_method_ranking_across_scenarios(
+    summary_df: pd.DataFrame,
+    metric: str = 'rmse',
+    save_path: Optional[Path] = None,
+    figsize: Tuple[float, float] = (14, 8)
+) -> plt.Figure:
+    """
+    Create visualization showing method rankings across all scenarios.
+    
+    Parameters
+    ----------
+    summary_df : pd.DataFrame
+        Summary statistics
+    metric : str
+        Metric to rank by (lower is better)
+    save_path : Path, optional
+        Path to save figure
+    figsize : tuple
+        Figure size
+        
+    Returns
+    -------
+    fig : plt.Figure
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+    
+    method_order = ['Fixed-0.1', 'Fixed-0.2', 'Fixed-0.5', 'No Caliper',
+                    'ACS-Balance', 'ACS-Knee', 'ACS-Weighted']
+    
+    # Left panel: Average rank across scenarios
+    ranks = []
+    for scenario_id in summary_df['scenario_id'].unique():
+        scenario_data = summary_df[summary_df['scenario_id'] == scenario_id]
+        scenario_data = scenario_data.sort_values(metric)
+        scenario_data['rank'] = range(1, len(scenario_data) + 1)
+        ranks.append(scenario_data[['method', 'rank']])
+    
+    ranks_df = pd.concat(ranks)
+    avg_ranks = ranks_df.groupby('method')['rank'].mean().sort_values()
+    
+    colors = [METHOD_COLORS.get(m, 'gray') for m in avg_ranks.index]
+    ax1.barh(range(len(avg_ranks)), avg_ranks.values, color=colors, alpha=0.7)
+    ax1.set_yticks(range(len(avg_ranks)))
+    ax1.set_yticklabels([METHOD_NAMES.get(m, m) for m in avg_ranks.index])
+    ax1.set_xlabel('Average Rank (lower is better)', fontsize=11, fontweight='bold')
+    ax1.set_title('Average Method Ranking Across All Scenarios', 
+                 fontsize=12, fontweight='bold')
+    ax1.invert_yaxis()
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+    
+    # Right panel: Win rate (% of scenarios where method is best)
+    win_counts = ranks_df[ranks_df['rank'] == 1]['method'].value_counts()
+    win_rates = (win_counts / summary_df['scenario_id'].nunique() * 100).reindex(
+        method_order, fill_value=0
+    )
+    
+    colors = [METHOD_COLORS.get(m, 'gray') for m in win_rates.index]
+    ax2.barh(range(len(win_rates)), win_rates.values, color=colors, alpha=0.7)
+    ax2.set_yticks(range(len(win_rates)))
+    ax2.set_yticklabels([METHOD_NAMES.get(m, m) for m in win_rates.index])
+    ax2.set_xlabel('% Scenarios Where Best', fontsize=11, fontweight='bold')
+    ax2.set_title('Method Win Rate', fontsize=12, fontweight='bold')
+    ax2.invert_yaxis()
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches='tight')
+    
+    return fig
+
+
+def create_comprehensive_comparison_table(
+    summary_df: pd.DataFrame,
+    save_path: Optional[Path] = None
+) -> pd.DataFrame:
+    """
+    Create comprehensive table comparing all methods across all scenarios.
+    
+    Parameters
+    ----------
+    summary_df : pd.DataFrame
+        Summary statistics
+    save_path : Path, optional
+        Path to save CSV
+        
+    Returns
+    -------
+    comparison_table : pd.DataFrame
+        Comprehensive comparison table
+    """
+    method_order = ['Fixed-0.1', 'Fixed-0.2', 'Fixed-0.5', 'No Caliper',
+                    'ACS-Balance', 'ACS-Knee', 'ACS-Weighted']
+    
+    # Overall summary across all scenarios
+    overall = summary_df.groupby('method').agg({
+        'mean_retention': ['mean', 'std'],
+        'mean_max_smd': ['mean', 'std'],
+        'mean_abs_bias': ['mean', 'std'],
+        'rmse': ['mean', 'std'],
+        'coverage_rate': ['mean', 'std'],
+        'mean_ci_width': ['mean', 'std']
+    }).round(4)
+    
+    overall.columns = ['_'.join(col).strip() for col in overall.columns.values]
+    overall = overall.reindex([m for m in method_order if m in overall.index])
+    
+    # Add performance metrics
+    # Count scenarios where method achieves balance (max_smd <= 0.1)
+    balanced = summary_df[summary_df['mean_max_smd'] <= 0.1].groupby('method').size()
+    overall['n_scenarios_balanced'] = balanced
+    overall['pct_scenarios_balanced'] = (balanced / summary_df['scenario_id'].nunique() * 100).round(1)
+    
+    # Count scenarios where coverage is within 93-97%
+    good_coverage = summary_df[
+        (summary_df['coverage_rate'] >= 0.93) & 
+        (summary_df['coverage_rate'] <= 0.97)
+    ].groupby('method').size()
+    overall['n_scenarios_good_coverage'] = good_coverage
+    overall['pct_scenarios_good_coverage'] = (good_coverage / summary_df['scenario_id'].nunique() * 100).round(1)
+    
+    if save_path:
+        overall.to_csv(save_path)
+        
+        # Also create a formatted version
+        formatted_path = save_path.parent / f"{save_path.stem}_formatted.csv"
+        formatted = overall.copy()
+        for col in formatted.columns:
+            if 'mean' in col or 'rmse' in col:
+                base = col.replace('_mean', '').replace('_std', '')
+                if base + '_std' in formatted.columns:
+                    formatted[base] = (
+                        formatted[col.replace('_std', '_mean')].astype(str) + 
+                        ' ± ' + 
+                        formatted[base + '_std'].astype(str)
+                    )
+        formatted.to_csv(formatted_path)
+    
+    return overall
+
+
+def plot_scenario_factor_effects(
+    summary_df: pd.DataFrame,
+    metric: str = 'rmse',
+    save_path: Optional[Path] = None,
+    figsize: Tuple[float, float] = (14, 10)
+) -> plt.Figure:
+    """
+    Create plots showing main effects of each factorial design factor.
+    
+    Parameters
+    ----------
+    summary_df : pd.DataFrame
+        Summary statistics
+    metric : str
+        Metric to analyze
+    save_path : Path, optional
+        Path to save figure
+    figsize : tuple
+        Figure size
+        
+    Returns
+    -------
+    fig : plt.Figure
+    """
+    fig, axes = plt.subplots(2, 2, figsize=figsize)
+    
+    metric_label = {
+        'rmse': 'RMSE',
+        'mean_abs_bias': 'Mean Absolute Bias',
+        'coverage_rate': 'Coverage Rate',
+        'mean_retention': 'Sample Retention',
+        'mean_max_smd': 'Max |SMD|'
+    }.get(metric, metric)
+    
+    method_order = ['Fixed-0.2', 'ACS-Balance', 'ACS-Knee', 'ACS-Weighted']
+    factors = [
+        ('n', 'Sample Size'),
+        ('treatment_prevalence', 'Treatment Prevalence'),
+        ('overlap_name', 'Overlap Level'),
+        ('confounding_name', 'Confounding Strength')
+    ]
+    
+    for ax, (factor, factor_label) in zip(axes.flat, factors):
+        for method in method_order:
+            method_data = summary_df[summary_df['method'] == method]
+            factor_means = method_data.groupby(factor)[metric].mean()
+            
+            color = METHOD_COLORS.get(method, 'gray')
+            ax.plot(range(len(factor_means)), factor_means.values,
+                   'o-', color=color, label=METHOD_NAMES.get(method, method),
+                   markersize=8, linewidth=2, alpha=0.8)
+        
+        ax.set_xticks(range(len(factor_means)))
+        ax.set_xticklabels(factor_means.index, rotation=45 if factor != 'n' else 0)
+        ax.set_xlabel(factor_label, fontsize=11, fontweight='bold')
+        ax.set_ylabel(metric_label, fontsize=11, fontweight='bold')
+        ax.set_title(f'{metric_label} by {factor_label}', 
+                    fontsize=12, fontweight='bold')
+        
+        if factor == 'n':
+            ax.legend(loc='best', fontsize=8)
+        
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.grid(True, alpha=0.3)
+    
+    fig.suptitle(f'Main Effects of Factorial Design Factors on {metric_label}',
+                fontsize=14, fontweight='bold', y=1.00)
+    plt.tight_layout()
+    
+    if save_path:
+        fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches='tight')
+    
+    return fig

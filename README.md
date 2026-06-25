@@ -41,6 +41,8 @@ pip install -r requirements.txt
 
 ## Quick Start
 
+### Single Scenario Example
+
 ```python
 from src.data_generator import DataGenerator
 from src.adaptive_caliper import AdaptiveCaliperSelector
@@ -60,6 +62,18 @@ result = selector.select_optimal('balance')
 print(f"Optimal caliper: {result.optimal_caliper:.3f} SD")
 ```
 
+### Run Full Factorial Simulation
+
+```bash
+# Run all 54 scenarios (takes 30-60 minutes with parallel processing)
+python run_full_factorial_simulation.py
+```
+
+Or use the Jupyter notebook:
+```bash
+jupyter notebook notebooks/full_factorial_analysis.ipynb
+```
+
 ## Methods Compared
 
 | Method | Description |
@@ -74,11 +88,18 @@ print(f"Optimal caliper: {result.optimal_caliper:.3f} SD")
 
 ## Simulation Design
 
-- **Sample sizes:** 1000
-- **Treatment prevalence:** 0.5
-- **Overlap levels:** Medium
-- **Confounding:** Strong
-- **Replications:** 100 per scenario
+**Full Factorial Design:**
+
+| Factor | Levels |
+|--------|--------|
+| Sample size (n) | 500, 1000, 2000 |
+| Treatment prevalence | 0.3, 0.5, 0.7 |
+| Overlap (coefficient magnitude) | Low (α = 0.3), Medium (α = 0.6), High (α = 1.0) |
+| Confounding strength | Weak (β = 0.3), Strong (β = 1.0) |
+
+**Total scenarios:** 3 × 3 × 3 × 2 = **54 scenarios**  
+**Replications:** 1000 per scenario  
+**Total simulations:** 54,000
 
 ## Citation
 
