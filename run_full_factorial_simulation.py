@@ -28,7 +28,7 @@ warnings.filterwarnings('ignore')
 
 from config import (
     N_REPLICATIONS, RESULTS_DIR, FIGURES_DIR, TABLES_DIR,
-    generate_all_scenarios
+    generate_all_scenarios, TRUE_TREATMENT_EFFECT
 )
 from simulation_runner import run_full_simulation, summarize_results
 from visualization import (
@@ -38,7 +38,17 @@ from visualization import (
     plot_scenario_factor_effects,
     create_scenario_comparison_figure,
     plot_method_comparison_boxplot,
-    plot_individual_scenario_tracking
+    plot_individual_scenario_tracking,
+    plot_all_tradeoff_spaces_grid,
+    generate_all_scenario_tables,
+    plot_treatment_effects_all_scenarios,
+    generate_optimal_caliper_table,
+    plot_optimal_caliper_visualization,
+    plot_optimal_caliper_heatmap,
+    generate_optimal_caliper_by_method_table,
+    plot_optimal_caliper_by_method,
+    plot_improved_tradeoff_grid,
+    plot_optimal_caliper_summary_dashboard
 )
 
 
@@ -126,8 +136,26 @@ def main():
     for metric, fig in tracking_figs.items():
         plt.close(fig)
     
-    # 2. Factorial design heatmaps (2×4 grid)
-    print("\n2. Creating factorial design heatmaps (2×4 grid layout)...")
+    # 2. Balance-Retention Trade-off Grid (9×6 grid for all 54 scenarios)
+    print("\n2. Creating balance-retention trade-off grid (9×6 for all 54 scenarios)...")
+    tradeoff_fig = plot_all_tradeoff_spaces_grid(
+        summary_df,
+        save_path=FIGURES_DIR / 'fig2_all_scenarios_tradeoff_grid.png'
+    )
+    plt.close(tradeoff_fig)
+    print("  ✓ Trade-off grid saved (Fig 2)")
+    
+    # 2b. Improved Trade-off Grid with better visibility
+    print("\n2b. Creating IMPROVED balance-retention trade-off grid...")
+    improved_tradeoff_fig = plot_improved_tradeoff_grid(
+        summary_df,
+        save_path=FIGURES_DIR / 'fig2_improved_tradeoff_grid.png'
+    )
+    plt.close(improved_tradeoff_fig)
+    print("  ✓ Improved trade-off grid saved")
+    
+    # 3. Factorial design heatmaps (2×4 grid)
+    print("\n3. Creating factorial design heatmaps (2×4 grid layout)...")
     heatmap_figs = plot_factorial_heatmaps(
         summary_df,
         save_dir=FIGURES_DIR
@@ -136,8 +164,8 @@ def main():
     for metric, fig in heatmap_figs.items():
         plt.close(fig)
     
-    # 3. Comprehensive scenario comparison (all 7 methods)
-    print("\n3. Creating comprehensive scenario comparison (all 7 methods)...")
+    # 4. Comprehensive scenario comparison (all 7 methods)
+    print("\n4. Creating comprehensive scenario comparison (all 7 methods)...")
     fig = create_scenario_comparison_figure(
         summary_df,
         save_path=FIGURES_DIR / 'comprehensive_scenario_comparison.png'
@@ -145,8 +173,18 @@ def main():
     plt.close(fig)
     print("  ✓ Comprehensive comparison saved")
     
-    # 4. Method rankings
-    print("\n4. Creating method ranking visualizations...")
+    # 5. Treatment Effect Estimates for All 54 Scenarios (Fig 5)
+    print("\n5. Creating treatment effect estimates grid (9×6 for all 54 scenarios)...")
+    te_fig = plot_treatment_effects_all_scenarios(
+        summary_df,
+        true_effect=TRUE_TREATMENT_EFFECT,
+        save_path=FIGURES_DIR / 'fig5_treatment_effects_all_scenarios.png'
+    )
+    plt.close(te_fig)
+    print("  ✓ Treatment effect estimates grid saved (Fig 5)")
+    
+    # 6. Method rankings
+    print("\n6. Creating method ranking visualizations...")
     for metric in ['rmse', 'mean_abs_bias', 'coverage_rate', 'mean_max_smd']:
         fig = plot_method_ranking_across_scenarios(
             summary_df,
@@ -156,8 +194,8 @@ def main():
         plt.close(fig)
     print("  ✓ Method rankings saved")
     
-    # 5. Factor effects
-    print("\n5. Creating factorial design factor effect plots...")
+    # 7. Factor effects
+    print("\n7. Creating factorial design factor effect plots...")
     for metric in ['rmse', 'mean_abs_bias', 'coverage_rate', 'mean_retention']:
         fig = plot_scenario_factor_effects(
             summary_df,
@@ -167,8 +205,8 @@ def main():
         plt.close(fig)
     print("  ✓ Factor effect plots saved")
     
-    # 6. Boxplots for main metrics
-    print("\n6. Creating method comparison boxplots...")
+    # 8. Boxplots for main metrics
+    print("\n8. Creating method comparison boxplots...")
     for metric in ['bias', 'mse', 'max_smd', 'retention', 'coverage']:
         fig = plot_method_comparison_boxplot(
             results_df,
@@ -178,8 +216,74 @@ def main():
         plt.close(fig)
     print("  ✓ Boxplots saved")
     
+    # 9. Generate comprehensive tables for all 54 scenarios
+    print("\n" + "=" * 80)
+    print("GENERATING COMPREHENSIVE TABLES (All 54 Scenarios)")
+    print("=" * 80)
+    all_tables = generate_all_scenario_tables(summary_df, results_df, TABLES_DIR)
+    
+    # 10. Generate optimal method selection table and visualizations
+    print("\n" + "=" * 80)
+    print("OPTIMAL METHOD SELECTION ANALYSIS")
+    print("=" * 80)
+    
+    optimal_caliper_df = generate_optimal_caliper_table(summary_df, TABLES_DIR)
+    
+    if len(optimal_caliper_df) > 0:
+        print("\n10. Creating optimal method visualizations...")
+        
+        # Comprehensive visualization
+        opt_viz_fig = plot_optimal_caliper_visualization(
+            optimal_caliper_df,
+            save_path=FIGURES_DIR / 'optimal_method_comprehensive.png'
+        )
+        if opt_viz_fig:
+            plt.close(opt_viz_fig)
+            print("  ✓ Comprehensive optimal method visualization saved")
+        
+        # Heatmap visualization
+        opt_heatmap_fig = plot_optimal_caliper_heatmap(
+            optimal_caliper_df,
+            save_path=FIGURES_DIR / 'optimal_method_heatmap.png'
+        )
+        if opt_heatmap_fig:
+            plt.close(opt_heatmap_fig)
+            print("  ✓ Optimal method heatmap saved")
+    
+    # 11. NEW: Generate optimal caliper by method table (Table 8)
+    print("\n" + "=" * 80)
+    print("OPTIMAL CALIPER BY METHOD ANALYSIS (Table 8)")
+    print("=" * 80)
+    
+    optimal_by_method_df = generate_optimal_caliper_by_method_table(
+        summary_df, 
+        TABLES_DIR,
+        balance_threshold=0.1
+    )
+    print(f"  ✓ Table 8 saved: optimal caliper by method for all 54 scenarios")
+    
+    # 12. NEW: Create optimal caliper visualizations by method (ACS methods)
+    print("\n12. Creating optimal caliper visualizations by ACS method...")
+    method_figs = plot_optimal_caliper_by_method(
+        summary_df,
+        save_dir=FIGURES_DIR,
+        balance_threshold=0.1
+    )
+    for method, fig in method_figs.items():
+        plt.close(fig)
+    print(f"  ✓ Generated {len(method_figs)} method-specific optimal caliper visualizations")
+    
+    # 13. NEW: Create comprehensive optimal caliper dashboard
+    print("\n13. Creating optimal caliper summary dashboard...")
+    dashboard_fig = plot_optimal_caliper_summary_dashboard(
+        summary_df,
+        save_path=FIGURES_DIR / 'optimal_caliper_dashboard.png'
+    )
+    plt.close(dashboard_fig)
+    print("  ✓ Optimal caliper dashboard saved")
+    
     # Generate detailed scenario-by-scenario results
-    print("\n6. Creating scenario-specific detailed results...")
+    print("\n14. Creating scenario-specific detailed results...")
     scenario_results = []
     for scenario_id in summary_df['scenario_id'].unique():
         scenario_data = summary_df[summary_df['scenario_id'] == scenario_id]

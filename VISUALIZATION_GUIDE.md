@@ -6,6 +6,12 @@ This guide describes the professional, publication-ready visualizations generate
 
 ---
 
+## Complete Figure Organization for Q1 Manuscript
+
+The visualization system generates a complete set of publication-ready figures organized as follows:
+
+---
+
 ## Figure Set 1: Individual Scenario Tracking Plots (Fig 1-6)
 
 **Purpose:** Track performance of all 7 methods across all 54 scenarios for each key metric.
@@ -58,7 +64,74 @@ This guide describes the professional, publication-ready visualizations generate
 
 ---
 
-## Figure Set 2: Factorial Design Heatmaps (2×4 Grid)
+## Figure 2: Balance-Retention Trade-off Grid (All 54 Scenarios)
+
+**Purpose:** Visualize the multi-objective trade-off space for every scenario in the factorial design.
+
+### **File:** `fig2_all_scenarios_tradeoff_grid.png`
+
+### Layout:
+- **Grid:** 9 rows × 6 columns (54 subplots, one per scenario)
+- **Size:** 22×30 inches for clear readability
+- **Each subplot:** Shows all 7 methods positioned in balance-retention space
+
+### Design Features:
+
+**Method Markers:**
+- **Circles (○):** Fixed-caliper methods (0.1, 0.2, 0.5 SD) and No Caliper
+- **Squares (□):** Adaptive methods (ACS-Balance, ACS-Knee, ACS-Weighted)
+- **Colors:** Distinct color for each method (colorblind-friendly palette)
+- **Black edges:** All markers have thin black outlines for clarity
+
+**Visual Elements:**
+- **Green dashed line:** Balance threshold at max |SMD| = 0.1
+- **Green shading:** Acceptable balance region (below threshold)
+- **Gray connecting line:** Shows trade-off continuum between methods
+- **Background tinting:** Subtle color by sample size (blue=500, green=1000, orange=2000)
+
+**Subplot Titles:**
+- **Scenario ID:** Clear numbering (1-54)
+- **Characteristics:** n, prevalence, overlap level, confounding strength
+- **Format:** `Scenario X\nn=Y, prev=Z, abc, defg`
+
+### Interpretation Guide:
+
+**Horizontal Axis (Retention):**
+- Left (0.0): No matches retained
+- Right (1.0): All potential matches retained
+- Rightward movement = higher statistical power
+
+**Vertical Axis (Max |SMD|):**
+- Bottom (0.0): Perfect balance
+- Top (0.6): Severe imbalance
+- Downward movement = better covariate balance
+
+**Key Patterns to Observe:**
+1. **Method clustering:** How close are methods in the trade-off space?
+2. **Threshold compliance:** Which methods stay in green zone (balance < 0.1)?
+3. **Scenario variation:** Does trade-off shape change across scenarios?
+4. **Sample size effects:** Compare background colors (blue vs green vs orange)
+
+### Use in Manuscript:
+
+**Main Text:**
+- Demonstrates that trade-off structure varies across scenarios
+- Shows ACS methods adapt to scenario-specific characteristics
+- Provides visual evidence of multi-objective optimization
+
+**Key Caption Elements:**
+```latex
+Figure 2: Balance-retention trade-off across all 54 factorial design scenarios.
+Each panel shows the position of seven matching methods in the multi-objective 
+space. Circles: fixed calipers; Squares: adaptive methods. Green shading indicates
+the acceptable balance region (max |SMD| ≤ 0.1). Background tinting: blue (n=500),
+green (n=1000), orange (n=2000). Methods that achieve both high retention and 
+acceptable balance (right side of green zone) are optimal.
+```
+
+---
+
+## Figure Set 3: Factorial Design Heatmaps (2×4 Grid)
 
 **Purpose:** Show performance across all factor combinations in a compact, professional format.
 
