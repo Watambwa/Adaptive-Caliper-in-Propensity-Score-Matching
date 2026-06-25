@@ -291,39 +291,81 @@ def create_summary_table(
 def create_scenario_comparison_figure(
     summary_df: pd.DataFrame,
     save_path: Optional[Path] = None,
-    figsize: Tuple[float, float] = (14, 10)
+    figsize: Tuple[float, float] = (18, 14)
 ) -> plt.Figure:
-    """Create multi-panel figure comparing methods across scenarios."""
-    fig, axes = plt.subplots(2, 2, figsize=figsize)
+    """
+    Create comprehensive multi-panel figure comparing all methods across all 54 scenarios.
+    Uses a 3×2 grid with professional formatting.
+    """
+    fig, axes = plt.subplots(3, 2, figsize=figsize)
     
-    metrics = [('mean_abs_bias', '|Bias|'), ('rmse', 'RMSE'),
-               ('coverage_rate', 'Coverage'), ('mean_retention', 'Retention')]
+    metrics = [
+        ('mean_abs_bias', 'Mean Absolute Bias', 0.0),
+        ('rmse', 'Root Mean Squared Error', None),
+        ('coverage_rate', '95% CI Coverage Rate', 0.95),
+        ('mean_retention', 'Sample Retention Rate', None),
+        ('mean_max_smd', 'Maximum |SMD|', 0.1),
+        ('mean_ci_width', 'Confidence Interval Width', None)
+    ]
     
-    method_order = ['Fixed-0.2', 'ACS-Balance', 'ACS-Knee', 'ACS-Weighted']
+    # Include ALL 7 methods
+    method_order = ['Fixed-0.1', 'Fixed-0.2', 'Fixed-0.5', 'No Caliper',
+                    'ACS-Balance', 'ACS-Knee', 'ACS-Weighted']
     
-    for ax, (metric, label) in zip(axes.flat, metrics):
+    # Get unique scenarios
+    n_scenarios = summary_df['scenario_id'].nunique()
+    
+    for ax, (metric, label, reference_line) in zip(axes.flat, metrics):
         for method in method_order:
-            method_data = summary_df[summary_df['method'] == method]
+            method_data = summary_df[summary_df['method'] == method].sort_values('scenario_id')
             color = METHOD_COLORS.get(method, 'gray')
+            
+            # Use smaller markers and thinner lines for 54 scenarios
             ax.plot(method_data['scenario_id'], method_data[metric],
-                   'o-', color=color, label=METHOD_NAMES.get(method, method),
-                   markersize=4, linewidth=1.5, alpha=0.8)
+                   '-', color=color, label=METHOD_NAMES.get(method, method),
+                   linewidth=1.2, alpha=0.75)
+            
+            # Add markers every 9 scenarios (6 data points) for clarity
+            marker_indices = list(range(0, len(method_data), 9))
+            ax.plot(method_data['scenario_id'].iloc[marker_indices], 
+                   method_data[metric].iloc[marker_indices],
+                   'o', color=color, markersize=3, alpha=0.75)
         
-        ax.set_xlabel('Scenario', fontsize=10)
+        # Add reference lines where appropriate
+        if reference_line is not None:
+            line_label = 'Target' if metric == 'coverage_rate' else 'Threshold'
+            ax.axhline(y=reference_line, color='red', linestyle='--', 
+                      linewidth=1.5, alpha=0.6, label=line_label)
+        
+        # Formatting
+        ax.set_xlabel('Scenario ID', fontsize=10, fontweight='bold')
         ax.set_ylabel(label, fontsize=10, fontweight='bold')
-        ax.set_title(label, fontsize=11, fontweight='bold')
+        ax.set_title(label, fontsize=11, fontweight='bold', pad=10)
+        ax.set_xlim(0, n_scenarios + 1)
         
-        if metric == 'coverage_rate':
-            ax.axhline(y=0.95, color='red', linestyle='--', alpha=0.7)
+        # Add vertical lines to separate factor levels (every 18 scenarios = full cycle of prevalence×overlap×confounding)
+        for i in range(18, n_scenarios, 18):
+            ax.axvline(x=i+0.5, color='gray', linestyle=':', linewidth=0.8, alpha=0.3)
         
+        # Grid for readability
+        ax.grid(True, alpha=0.2, linestyle='-', linewidth=0.5)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
+        
+        # Set x-axis ticks to show key scenarios
+        ax.set_xticks([1, 10, 20, 30, 40, 50, n_scenarios])
     
+    # Create legend with all 7 methods
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper center', ncol=4, 
-               bbox_to_anchor=(0.5, 1.02), fontsize=10)
+               bbox_to_anchor=(0.5, 0.99), fontsize=9,
+               frameon=True, fancybox=True, shadow=True)
     
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.suptitle('Performance Comparison Across All 54 Factorial Design Scenarios\n' + 
+                'Scenarios organized by: Sample Size (1-18: n=500 | 19-36: n=1000 | 37-54: n=2000)',
+                fontsize=13, fontweight='bold', y=0.995)
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
     
     if save_path:
         fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches='tight')
@@ -335,10 +377,11 @@ def plot_factorial_heatmaps(
     summary_df: pd.DataFrame,
     metrics: List[str] = None,
     save_dir: Optional[Path] = None,
-    figsize: Tuple[float, float] = (16, 12)
+    figsize: Tuple[float, float] = (18, 10)
 ) -> Dict[str, plt.Figure]:
     """
     Create heatmaps for each metric across factorial design factors.
+    Uses a 2×4 grid layout for professional presentation.
     
     Parameters
     ----------
@@ -374,11 +417,25 @@ def plot_factorial_heatmaps(
     figures = {}
     
     for metric in metrics:
-        fig, axes = plt.subplots(1, len(method_order), 
-                                 figsize=(figsize[0], figsize[1]/3),
-                                 sharex=True, sharey=True)
+        # Create 2×4 grid (2 rows, 4 columns for 7 methods + 1 empty)
+        fig, axes = plt.subplots(2, 4, figsize=figsize, sharex=True, sharey=True)
+        axes = axes.flatten()
         
-        for ax, method in zip(axes, method_order):
+        # Determine color scale limits for consistency
+        all_values = []
+        for method in method_order:
+            method_data = summary_df[summary_df['method'] == method]
+            if len(method_data) > 0:
+                all_values.extend(method_data[metric].dropna().values)
+        
+        if len(all_values) > 0:
+            vmin, vmax = np.percentile(all_values, [2, 98])
+        else:
+            vmin, vmax = None, None
+        
+        for idx, method in enumerate(method_order):
+            ax = axes[idx]
+            
             # Create pivot table for this method
             pivot_data = summary_df[summary_df['method'] == method].pivot_table(
                 values=metric,
@@ -387,27 +444,46 @@ def plot_factorial_heatmaps(
                 aggfunc='mean'
             )
             
-            # Create heatmap
-            sns.heatmap(pivot_data, annot=True, fmt='.3f', 
-                       cmap='RdYlGn_r' if metric != 'coverage_rate' else 'RdYlGn',
-                       ax=ax, cbar=True, vmin=None, vmax=None,
-                       cbar_kws={'label': metric_labels.get(metric, metric)})
+            # Sort index and columns for consistency
+            pivot_data = pivot_data.sort_index()
+            pivot_data = pivot_data.reindex(
+                columns=sorted(pivot_data.columns, key=lambda x: (x[0], x[1]))
+            )
+            
+            # Create heatmap with better formatting
+            cmap = 'RdYlGn' if metric in ['coverage_rate', 'mean_retention'] else 'RdYlGn_r'
+            
+            sns.heatmap(pivot_data, annot=True, fmt='.2f',  # 2 decimal places
+                       cmap=cmap, ax=ax, cbar=True,
+                       vmin=vmin, vmax=vmax,
+                       annot_kws={'fontsize': 8, 'fontweight': 'bold'},
+                       cbar_kws={'label': metric_labels.get(metric, metric),
+                                'shrink': 0.8},
+                       linewidths=0.5, linecolor='white')
             
             ax.set_title(METHOD_NAMES.get(method, method), 
-                        fontsize=11, fontweight='bold')
-            ax.set_xlabel('(n, prev)', fontsize=9)
-            ax.set_ylabel('(overlap, conf)' if ax == axes[0] else '', fontsize=9)
-            plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=7)
-            plt.setp(ax.get_yticklabels(), rotation=0, fontsize=7)
+                        fontsize=11, fontweight='bold', pad=8)
+            ax.set_xlabel('(Sample Size, Prevalence)', fontsize=9, fontweight='bold')
+            ax.set_ylabel('(Overlap, Confounding)' if idx % 4 == 0 else '', 
+                         fontsize=9, fontweight='bold')
+            
+            # Improve tick labels
+            plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=8)
+            plt.setp(ax.get_yticklabels(), rotation=0, fontsize=8)
         
-        fig.suptitle(f'{metric_labels.get(metric, metric)} Across All Scenarios',
-                    fontsize=14, fontweight='bold', y=1.02)
-        plt.tight_layout()
+        # Hide the last subplot (8th position) since we only have 7 methods
+        axes[7].set_visible(False)
+        
+        fig.suptitle(f'{metric_labels.get(metric, metric)} Across All 54 Scenarios\n' + 
+                    'Full Factorial Design: 3 Sample Sizes × 3 Prevalences × 3 Overlap Levels × 2 Confounding Strengths',
+                    fontsize=14, fontweight='bold', y=0.98)
+        
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
         
         figures[metric] = fig
         
         if save_dir:
-            fig.savefig(save_dir / f'factorial_heatmap_{metric}.png', 
+            fig.savefig(save_dir / f'fig{list(metrics).index(metric)+1}_heatmap_{metric}.png', 
                        dpi=FIGURE_DPI, bbox_inches='tight')
     
     return figures
@@ -555,6 +631,126 @@ def create_comprehensive_comparison_table(
         formatted.to_csv(formatted_path)
     
     return overall
+
+
+def plot_individual_scenario_tracking(
+    summary_df: pd.DataFrame,
+    metrics: List[str] = None,
+    save_dir: Optional[Path] = None,
+    figsize: Tuple[float, float] = (16, 5)
+) -> Dict[str, plt.Figure]:
+    """
+    Create individual scenario tracking plots for each metric (Fig 1-6).
+    Each plot shows all 7 methods across all 54 scenarios in a compact format.
+    
+    Parameters
+    ----------
+    summary_df : pd.DataFrame
+        Summary statistics
+    metrics : list of str, optional
+        Metrics to plot
+    save_dir : Path, optional
+        Directory to save figures
+    figsize : tuple
+        Figure size
+        
+    Returns
+    -------
+    figures : dict
+        Dictionary mapping metric names to figure objects
+    """
+    if metrics is None:
+        metrics = [
+            ('mean_abs_bias', 'Mean Absolute Bias', 0.0),
+            ('rmse', 'Root Mean Squared Error (RMSE)', None),
+            ('coverage_rate', '95% Confidence Interval Coverage Rate', 0.95),
+            ('mean_retention', 'Sample Retention Rate', None),
+            ('mean_max_smd', 'Maximum Absolute SMD (Balance)', 0.1),
+            ('mean_ci_width', 'Confidence Interval Width', None)
+        ]
+    
+    method_order = ['Fixed-0.1', 'Fixed-0.2', 'Fixed-0.5', 'No Caliper',
+                    'ACS-Balance', 'ACS-Knee', 'ACS-Weighted']
+    
+    n_scenarios = summary_df['scenario_id'].nunique()
+    figures = {}
+    
+    for fig_num, (metric, label, reference_line) in enumerate(metrics, 1):
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        
+        # Plot each method
+        for method in method_order:
+            method_data = summary_df[summary_df['method'] == method].sort_values('scenario_id')
+            color = METHOD_COLORS.get(method, 'gray')
+            
+            ax.plot(method_data['scenario_id'], method_data[metric],
+                   '-', color=color, label=METHOD_NAMES.get(method, method),
+                   linewidth=2, alpha=0.8)
+            
+            # Add subtle markers every 6 scenarios
+            marker_indices = list(range(0, len(method_data), 6))
+            ax.plot(method_data['scenario_id'].iloc[marker_indices], 
+                   method_data[metric].iloc[marker_indices],
+                   'o', color=color, markersize=4, alpha=0.8)
+        
+        # Add reference lines
+        if reference_line is not None:
+            line_style = '--' if metric == 'coverage_rate' else ':'
+            line_label = 'Target (0.95)' if metric == 'coverage_rate' else f'Threshold ({reference_line})'
+            ax.axhline(y=reference_line, color='red', linestyle=line_style, 
+                      linewidth=2, alpha=0.7, label=line_label, zorder=10)
+        
+        # Add vertical lines to separate sample sizes
+        for i in [18.5, 36.5]:
+            ax.axvline(x=i, color='gray', linestyle=':', linewidth=1.5, alpha=0.4)
+        
+        # Add background shading for sample sizes
+        ax.axvspan(0.5, 18.5, alpha=0.05, color='blue', zorder=0)
+        ax.axvspan(18.5, 36.5, alpha=0.05, color='green', zorder=0)
+        ax.axvspan(36.5, n_scenarios+0.5, alpha=0.05, color='orange', zorder=0)
+        
+        # Add sample size labels
+        ax.text(9.5, ax.get_ylim()[1]*0.98, 'n=500', 
+               ha='center', va='top', fontsize=9, fontweight='bold',
+               bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='blue'))
+        ax.text(27.5, ax.get_ylim()[1]*0.98, 'n=1000', 
+               ha='center', va='top', fontsize=9, fontweight='bold',
+               bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='green'))
+        ax.text(45.5, ax.get_ylim()[1]*0.98, 'n=2000', 
+               ha='center', va='top', fontsize=9, fontweight='bold',
+               bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='orange'))
+        
+        # Formatting
+        ax.set_xlabel('Scenario ID', fontsize=12, fontweight='bold')
+        ax.set_ylabel(label, fontsize=12, fontweight='bold')
+        ax.set_title(f'Figure {fig_num}: {label} Across All 54 Scenarios\n' + 
+                    'Full Factorial Design: 3 Sample Sizes × 3 Prevalences × 3 Overlaps × 2 Confounding Levels',
+                    fontsize=13, fontweight='bold', pad=15)
+        ax.set_xlim(0.5, n_scenarios + 0.5)
+        
+        # Set x-axis ticks
+        ax.set_xticks([1, 6, 12, 18, 24, 30, 36, 42, 48, 54])
+        ax.tick_params(axis='both', which='major', labelsize=10)
+        
+        # Grid
+        ax.grid(True, alpha=0.25, linestyle='-', linewidth=0.5, which='major')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        # Legend
+        ax.legend(ncol=4, fontsize=9, 
+                 frameon=True, fancybox=True, shadow=True,
+                 bbox_to_anchor=(0.5, -0.15), loc='upper center')
+        
+        plt.tight_layout()
+        
+        figures[metric] = fig
+        
+        if save_dir:
+            fig.savefig(save_dir / f'fig{fig_num}_scenario_tracking_{metric}.png', 
+                       dpi=FIGURE_DPI, bbox_inches='tight')
+    
+    return figures
 
 
 def plot_scenario_factor_effects(

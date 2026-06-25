@@ -21,7 +21,9 @@ from simulation_runner import run_scenario_simulation, summarize_results
 from visualization import (
     plot_method_comparison_boxplot,
     plot_method_ranking_across_scenarios,
-    create_comprehensive_comparison_table
+    create_comprehensive_comparison_table,
+    plot_factorial_heatmaps,
+    plot_individual_scenario_tracking
 )
 
 print("=" * 80)
@@ -115,7 +117,36 @@ print("\n" + "=" * 80)
 print("GENERATING TEST VISUALIZATIONS...")
 print("=" * 80)
 
-# Boxplot
+# 1. Individual scenario tracking (test with 1 metric)
+try:
+    test_metrics = [('rmse', 'Root Mean Squared Error (RMSE)', None)]
+    tracking_figs = plot_individual_scenario_tracking(
+        summary_df,
+        metrics=test_metrics,
+        save_dir=FIGURES_DIR,
+        figsize=(14, 4)
+    )
+    for fig in tracking_figs.values():
+        plt.close(fig)
+    print(f"  ✓ Scenario tracking plot saved (Fig 1 test)")
+except Exception as e:
+    print(f"  ⚠ Scenario tracking generation failed: {e}")
+
+# 2. Heatmap (2×4 grid)
+try:
+    heatmap_figs = plot_factorial_heatmaps(
+        summary_df,
+        metrics=['rmse'],  # Test with one metric
+        save_dir=FIGURES_DIR,
+        figsize=(16, 9)
+    )
+    for fig in heatmap_figs.values():
+        plt.close(fig)
+    print(f"  ✓ Heatmap (2×4 grid) saved")
+except Exception as e:
+    print(f"  ⚠ Heatmap generation failed: {e}")
+
+# 3. Boxplot
 try:
     fig = plot_method_comparison_boxplot(
         results_df,
@@ -130,7 +161,7 @@ try:
 except Exception as e:
     print(f"  ⚠ Boxplot generation failed: {e}")
 
-# Rankings
+# 4. Rankings
 try:
     fig = plot_method_ranking_across_scenarios(
         summary_df,

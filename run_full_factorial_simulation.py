@@ -37,7 +37,8 @@ from visualization import (
     create_comprehensive_comparison_table,
     plot_scenario_factor_effects,
     create_scenario_comparison_figure,
-    plot_method_comparison_boxplot
+    plot_method_comparison_boxplot,
+    plot_individual_scenario_tracking
 )
 
 
@@ -115,16 +116,37 @@ def main():
     print("GENERATING VISUALIZATIONS...")
     print("=" * 80)
     
-    # 1. Factorial design heatmaps
-    print("\n1. Creating factorial design heatmaps...")
+    # 1. Individual scenario tracking plots (Fig 1-6)
+    print("\n1. Creating individual scenario tracking plots (Fig 1-6)...")
+    tracking_figs = plot_individual_scenario_tracking(
+        summary_df,
+        save_dir=FIGURES_DIR
+    )
+    print(f"  ✓ Generated {len(tracking_figs)} scenario tracking plots")
+    for metric, fig in tracking_figs.items():
+        plt.close(fig)
+    
+    # 2. Factorial design heatmaps (2×4 grid)
+    print("\n2. Creating factorial design heatmaps (2×4 grid layout)...")
     heatmap_figs = plot_factorial_heatmaps(
         summary_df,
         save_dir=FIGURES_DIR
     )
-    print(f"  ✓ Generated {len(heatmap_figs)} heatmaps")
+    print(f"  ✓ Generated {len(heatmap_figs)} heatmaps with 2×4 grid layout")
+    for metric, fig in heatmap_figs.items():
+        plt.close(fig)
     
-    # 2. Method rankings
-    print("\n2. Creating method ranking visualizations...")
+    # 3. Comprehensive scenario comparison (all 7 methods)
+    print("\n3. Creating comprehensive scenario comparison (all 7 methods)...")
+    fig = create_scenario_comparison_figure(
+        summary_df,
+        save_path=FIGURES_DIR / 'comprehensive_scenario_comparison.png'
+    )
+    plt.close(fig)
+    print("  ✓ Comprehensive comparison saved")
+    
+    # 4. Method rankings
+    print("\n4. Creating method ranking visualizations...")
     for metric in ['rmse', 'mean_abs_bias', 'coverage_rate', 'mean_max_smd']:
         fig = plot_method_ranking_across_scenarios(
             summary_df,
@@ -134,8 +156,8 @@ def main():
         plt.close(fig)
     print("  ✓ Method rankings saved")
     
-    # 3. Factor effects
-    print("\n3. Creating factorial design factor effect plots...")
+    # 5. Factor effects
+    print("\n5. Creating factorial design factor effect plots...")
     for metric in ['rmse', 'mean_abs_bias', 'coverage_rate', 'mean_retention']:
         fig = plot_scenario_factor_effects(
             summary_df,
@@ -145,17 +167,8 @@ def main():
         plt.close(fig)
     print("  ✓ Factor effect plots saved")
     
-    # 4. Scenario comparison figure
-    print("\n4. Creating scenario comparison figure...")
-    fig = create_scenario_comparison_figure(
-        summary_df,
-        save_path=FIGURES_DIR / 'scenario_comparison.png'
-    )
-    plt.close(fig)
-    print("  ✓ Scenario comparison saved")
-    
-    # 5. Boxplots for main metrics
-    print("\n5. Creating method comparison boxplots...")
+    # 6. Boxplots for main metrics
+    print("\n6. Creating method comparison boxplots...")
     for metric in ['bias', 'mse', 'max_smd', 'retention', 'coverage']:
         fig = plot_method_comparison_boxplot(
             results_df,
